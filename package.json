@@ -1,13 +1,60 @@
 {
-  "name": "workflow-live",
-  "version": "0.0.1",
+  "name": "ai-collaboration-worker",
+  "version": "1.0.0",
+  "description": "Centralized API hub for AI collaboration with Cloudflare Workers",
+  "main": "src/index.ts",
   "scripts": {
+    "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "dev": "wrangler dev"
+    "deploy:staging": "wrangler deploy --env staging",
+    "deploy:production": "wrangler deploy --env production",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "type-check": "tsc --noEmit",
+    "format": "prettier --write \"src/**/*.{ts,js,json}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,js,json}\"",
+    "db:migrate": "wrangler d1 migrations apply ai-collaboration-db",
+    "db:seed": "wrangler d1 execute ai-collaboration-db --file=./migrations/seed.sql",
+    "kv:create": "wrangler kv:namespace create AI_MEMORY",
+    "r2:create": "wrangler r2 bucket create ai-collaboration-storage",
+    "setup": "npm run kv:create && npm run r2:create && npm run db:migrate && npm run db:seed",
+    "logs": "wrangler tail",
+    "logs:production": "wrangler tail --env production"
+  },
+  "dependencies": {
+    "@cloudflare/workers-types": "^4.20240529.0",
+    "hono": "^4.4.8",
+    "zod": "^3.23.8",
+    "jose": "^5.4.0",
+    "nanoid": "^5.0.7"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250204.0",
-    "typescript": "^5.0.4",
-    "wrangler": "^3.107.3"
+    "@typescript-eslint/eslint-plugin": "^7.13.1",
+    "@typescript-eslint/parser": "^7.13.1",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.2",
+    "typescript": "^5.5.2",
+    "vitest": "^1.6.0",
+    "wrangler": "^3.60.3",
+    "@vitest/ui": "^1.6.0"
+  },
+  "keywords": [
+    "cloudflare-workers",
+    "ai",
+    "collaboration",
+    "api",
+    "serverless"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jmbish04/ai-collaboration.git"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }
