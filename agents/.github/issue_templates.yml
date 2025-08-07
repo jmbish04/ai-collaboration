@@ -1,0 +1,145 @@
+# .github/ISSUE_TEMPLATE/bug_report.yml
+name: Bug Report
+description: File a bug report
+title: "[BUG]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+  
+  - type: input
+    id: contact
+    attributes:
+      label: Contact Details
+      description: How can we get in touch with you if we need more info?
+      placeholder: ex. email@example.com
+    validations:
+      required: false
+  
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Also tell us, what did you expect to happen?
+      placeholder: Tell us what you see!
+    validations:
+      required: true
+  
+  - type: dropdown
+    id: endpoint
+    attributes:
+      label: Which API endpoint is affected?
+      multiple: true
+      options:
+        - KV Operations
+        - D1 Database
+        - R2 Storage
+        - Durable Objects
+        - Workflows
+        - Queues
+        - Email Routing
+        - AI Services
+        - Vectorize
+        - SPA Management
+        - Other
+    validations:
+      required: true
+  
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Please provide detailed steps to reproduce the issue
+      placeholder: |
+        1. Make request to...
+        2. With payload...
+        3. See error...
+    validations:
+      required: true
+  
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
+      render: shell
+  
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Critical - System is down
+        - High - Major feature broken
+        - Medium - Minor feature broken
+        - Low - Cosmetic issue
+    validations:
+      required: true
+
+---
+# .github/ISSUE_TEMPLATE/feature_request.yml
+name: Feature Request
+description: Suggest an idea for this project
+title: "[FEATURE]: "
+labels: ["enhancement", "needs-review"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new feature!
+  
+  - type: textarea
+    id: problem
+    attributes:
+      label: Is your feature request related to a problem?
+      description: A clear and concise description of what the problem is.
+      placeholder: I'm always frustrated when...
+    validations:
+      required: true
+  
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe the solution you'd like
+      description: A clear and concise description of what you want to happen.
+    validations:
+      required: true
+  
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: A clear and concise description of any alternative solutions or features you've considered.
+    validations:
+      required: false
+  
+  - type: dropdown
+    id: category
+    attributes:
+      label: Feature Category
+      options:
+        - API Enhancement
+        - New Endpoint
+        - Performance Improvement
+        - Security Enhancement
+        - Documentation
+        - Developer Experience
+        - Other
+    validations:
+      required: true
+  
+  - type: checkboxes
+    id: breaking
+    attributes:
+      label: Breaking Changes
+      options:
+        - label: This feature would require breaking changes to existing APIs
+          required: false
+  
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Add any other context or screenshots about the feature request here.
