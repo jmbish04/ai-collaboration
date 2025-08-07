@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "lib": [
+      "es2015"
+    ],
+    "types": [
+      "@cloudflare/workers-types"
+    ],
+    "paths": {
+      "cloudflare:workers": [
+        "./node_modules/@cloudflare/workers-types"
+      ]
+    }
+  }
+}

@@ -1,0 +1,107 @@
+# wrangler.toml
+name = "ai-collaboration-worker"
+main = "src/index.ts"
+compatibility_date = "2024-08-07"
+compatibility_flags = ["nodejs_compat"]
+
+# Production Environment
+[env.production]
+name = "ai-collaboration-worker-prod"
+routes = [
+  { pattern = "api.yourdomain.com/*", zone_name = "yourdomain.com" }
+]
+
+# Staging Environment
+[env.staging]
+name = "ai-collaboration-worker-staging"
+routes = [
+  { pattern = "api-staging.yourdomain.com/*", zone_name = "yourdomain.com" }
+]
+
+# KV Bindings
+[[kv_namespaces]]
+binding = "AI_MEMORY"
+id = "your-kv-namespace-id"
+preview_id = "your-preview-kv-namespace-id"
+
+[[kv_namespaces]]
+binding = "AI_STATUS"
+id = "your-status-kv-namespace-id"
+preview_id = "your-preview-status-kv-namespace-id"
+
+# D1 Database Binding
+[[d1_databases]]
+binding = "AI_DB"
+database_name = "ai-collaboration-db"
+database_id = "your-d1-database-id"
+
+# R2 Bucket Bindings
+[[r2_buckets]]
+binding = "AI_STORAGE"
+bucket_name = "ai-collaboration-storage"
+preview_bucket_name = "ai-collaboration-storage-preview"
+
+[[r2_buckets]]
+binding = "SPA_ASSETS"
+bucket_name = "spa-assets"
+preview_bucket_name = "spa-assets-preview"
+
+# Durable Object Bindings
+[[durable_objects.bindings]]
+name = "AI_SESSION_MANAGER"
+class_name = "SessionManager"
+
+[[durable_objects.bindings]]
+name = "WORKFLOW_COORDINATOR"
+class_name = "WorkflowCoordinator"
+
+# Queue Bindings
+[[queues.producers]]
+binding = "EMAIL_QUEUE"
+queue = "email-processing"
+
+[[queues.producers]]
+binding = "TASK_QUEUE"
+queue = "task-processing"
+
+[[queues.consumers]]
+queue = "email-processing"
+max_batch_size = 10
+max_batch_timeout = 5
+
+[[queues.consumers]]
+queue = "task-processing"
+max_batch_size = 5
+max_batch_timeout = 3
+
+# Vectorize Binding
+[[vectorize]]
+binding = "AI_VECTORIZE"
+index_name = "ai-documents"
+
+# AI Binding
+[ai]
+binding = "AI"
+
+# Email Routing
+[send_email]
+name = "AI_EMAIL"
+
+# Environment Variables
+[vars]
+ENVIRONMENT = "development"
+LOG_LEVEL = "info"
+API_VERSION = "v1"
+MAX_REQUEST_SIZE = "50MB"
+RATE_LIMIT_REQUESTS = "1000"
+RATE_LIMIT_WINDOW = "3600"
+
+# Secrets (set via wrangler secret put)
+# - OPENAI_API_KEY
+# - WEBHOOK_SECRET
+# - JWT_SECRET
+# - SLACK_WEBHOOK_URL
+
+# Limits
+[limits]
+cpu_ms = 30000

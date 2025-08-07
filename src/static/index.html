@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simple Workflow</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100 p-8 font-mono">
+  <div class="max-w-2xl mx-auto">
+    <div class="flex justify-between items-center my-4 gap-4 border-b py-4">
+      <h1 class="text-2xl font-bold">Live Workflow Monitor</h1>
+      <button id="start"
+        class="w-auto bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed">
+        Start Workflow
+      </button>
+    </div>
+
+    <div class="mt-6">
+      <div class="overflow-auto">
+        <table class="w-full bg-white text-xs border-collapse">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="text-left p-2">ID</th>
+              <th class="text-left p-2">Latest Message</th>
+              <th class="text-left p-2">Last Update</th>
+            </tr>
+          </thead>
+          <tbody id="workflows">
+            <tr id="no-workflows">
+              <td colspan="3" class="text-center p-2">No workflows running</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="mt-6 max-w-2xl mx-auto text-right">
+    <a href="https://github.com/acoyfellow/workflow-live"
+      class="text-sm text-blue-600 hover:text-blue-800 mb-4 inline-block">
+      View on GitHub
+    </a>
+  </div>
+  <script>
+    const workflows = document.getElementById('workflows');
+    const startBtn = document.getElementById('start');
+    const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`);
+
+    const workflowRows = new Map();
+
+    ws.onmessage = (e) => {
+      const { id, message, time } = JSON.parse(e.data);
+      console.log('onmessage', { id, time, message });
+
+      let row = workflowRows.get(id);
+      if (!row) {
+        const noWorkflows = document.getElementById('no-workflows');
+        if (noWorkflows) noWorkflows.remove();
+
+        row = workflows.insertRow(0);
+        row.innerHTML = `
+          <td class="p-2 border-b w-20 truncate">${id}</td>
+          <td class="p-2 border-b message"></td>
+          <td class="p-2 border-b time">${new Date(time).toLocaleTimeString()}</td>
+        `;
+        workflowRows.set(id, row);
+      }
+      row.querySelector('.message').textContent = message;
+      row.querySelector('.time').textContent = new Date(time).toLocaleTimeString();
+    };
+
+    startBtn.onclick = async () => {
+      try {
+        const noWorkflows = document.getElementById('no-workflows');
+        if (noWorkflows) noWorkflows.remove();
+        const res = await fetch('/api/workflow', { method: 'POST' });
+        const { id } = await res.json();
+        console.log('Started workflow:', id);
+      } catch (err) {
+        console.error('Failed to start workflow:', err);
+      }
+    };
+  </script>
+</body>
+
+</html>
