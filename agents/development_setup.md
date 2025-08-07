@@ -3,8 +3,8 @@
 ## Prerequisites
 
 - Node.js 20+ 
-- npm or yarn
-- Wrangler CLI (`npm install -g wrangler`)
+- pnpm
+- Wrangler CLI (`pnpm install -g wrangler`)
 - Cloudflare account with Workers enabled
 
 ## Initial Setup
@@ -13,7 +13,7 @@
    ```bash
    git clone https://github.com/jmbish04/ai-collaboration.git
    cd ai-collaboration
-   npm install
+   pnpm install
    ```
 
 2. **Authenticate with Cloudflare:**
@@ -24,22 +24,22 @@
 3. **Create required resources:**
    ```bash
    # Create KV namespaces
-   wrangler kv:namespace create "AI_MEMORY"
-   wrangler kv:namespace create "AI_STATUS"
+   wrangler kv namespace create "ai-co-op-memory"
+   wrangler kv namespace create "ai-co-op-status"
    
    # Create R2 buckets
-   wrangler r2 bucket create ai-collaboration-storage
-   wrangler r2 bucket create spa-assets
+   wrangler r2 bucket create ai-co-op-storage
+   wrangler r2 bucket create ai-co-op-spa-assets
    
    # Create D1 database
-   wrangler d1 create ai-collaboration-db
+   wrangler d1 create ai-co-op-db
    
    # Create Vectorize index
-   wrangler vectorize create ai-documents --dimensions=1536 --metric=cosine
+   wrangler vectorize create ai-co-op-documents --dimensions=1536 --metric=cosine
    
    # Create Queues
-   wrangler queues create email-processing
-   wrangler queues create task-processing
+   wrangler queues create ai-co-op-email-processing
+   wrangler queues create ai-co-op-task-processing
    ```
 
 4. **Update wrangler.toml with your resource IDs**
@@ -49,13 +49,12 @@
    wrangler secret put OPENAI_API_KEY
    wrangler secret put WEBHOOK_SECRET
    wrangler secret put JWT_SECRET
-   wrangler secret put SLACK_WEBHOOK_URL
    ```
 
 6. **Run database migrations:**
    ```bash
-   npm run db:migrate
-   npm run db:seed
+   pnpm run db:migrate
+   pnpm run db:seed
    ```
 
 ## Development Workflow
@@ -63,7 +62,7 @@
 ### Local Development
 ```bash
 # Start development server
-npm run dev
+pnpm run dev
 
 # Run with specific environment
 wrangler dev --env staging
@@ -72,52 +71,52 @@ wrangler dev --env staging
 ### Testing
 ```bash
 # Run all tests
-npm test
+pnpm test
 
 # Run tests in watch mode
-npm run test:watch
+pnpm run test:watch
 
 # Run integration tests
-npm run test:integration
+pnpm run test:integration
 ```
 
 ### Code Quality
 ```bash
 # Lint code
-npm run lint
+pnpm run lint
 
 # Fix linting issues
-npm run lint:fix
+pnpm run lint:fix
 
 # Check TypeScript types
-npm run type-check
+pnpm run type-check
 
 # Format code
-npm run format
+pnpm run format
 ```
 
 ### Database Management
 ```bash
 # Apply migrations
-npm run db:migrate
+pnpm run db:migrate
 
 # Seed database
-npm run db:seed
+pnpm run db:seed
 
 # Execute custom SQL
-wrangler d1 execute ai-collaboration-db --file=./custom-query.sql
+wrangler d1 execute DB --file=./migrations/custom-query.sql
 ```
 
 ### Deployment
 ```bash
 # Deploy to staging
-npm run deploy:staging
+pnpm run deploy:staging
 
 # Deploy to production
-npm run deploy:production
+pnpm run deploy:production
 
 # View logs
-npm run logs
+pnpm run logs
 ```
 
 ## Environment Variables
@@ -126,7 +125,6 @@ npm run logs
 - `OPENAI_API_KEY` - OpenAI API key for AI services
 - `WEBHOOK_SECRET` - Secret for webhook validation
 - `JWT_SECRET` - Secret for JWT token signing
-- `SLACK_WEBHOOK_URL` - Slack webhook for notifications
 
 ### Configuration Variables
 - `ENVIRONMENT` - Current environment (development/staging/production)
@@ -139,6 +137,7 @@ npm run logs
 ## Project Structure
 ```
 src/
+├── migrations/          # sql files for schema changes and queries, etc.
 ├── handlers/          # Route handlers
 ├── services/          # Business logic
 ├── models/           # Data models
@@ -147,6 +146,7 @@ src/
 ├── types/           # TypeScript types
 ├── durable-objects/ # Durable Object classes
 └── index.ts         # Main entry point
+└── openapi.json         # OpenAPI schema 3.1.0 formatted for Custom GPT, Custom Actions 
 
 migrations/          # D1 database migrations
 tests/              # Test files
