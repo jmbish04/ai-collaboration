@@ -20,6 +20,8 @@ interface Env {
   WORKFLOW_LIVE: WorkflowNamespace;
 }
 
+const startTime = Date.now();
+
 // Simple WebSocket broadcaster
 export class WebSocketDO implements DurableObject {
   sockets = new Set<WebSocket>();
@@ -62,7 +64,7 @@ export class WorkFlowLive extends WorkflowEntrypoint<Env> {
   );
   private q = Promise.resolve();
 
-  async run(event: WorkflowEvent<{}>, step: WorkflowStep) {
+  async run(event: WorkflowEvent<Record<string, unknown>>, step: WorkflowStep) {
     const log = (message: string) => this.q = this.q.then(async () => {
       await this.stub.fetch('http://internal/', {
         method: 'POST',
@@ -102,6 +104,12 @@ export class WorkFlowLive extends WorkflowEntrypoint<Env> {
 export default {
   async fetch(req: Request, env: Env) {
     const url = new URL(req.url);
+    if (url.pathname === '/health') {
+      return Response.json({ status: 'ok' });
+    }
+    if (url.pathname === '/metrics') {
+      return Response.json({ uptime: Date.now() - startTime });
+    }
     if (url.pathname === '/ws') {
       const id = env.WEBSOCKET_DO.idFromName('broadcast');
       return env.WEBSOCKET_DO.get(id).fetch(req);

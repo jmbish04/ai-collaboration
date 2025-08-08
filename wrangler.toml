@@ -1,8 +1,8 @@
-name = "workflow-live"
+name = "ai-collaboration-worker"
 main = "src/index.ts"
 compatibility_date = "2024-04-03"
 compatibility_flags = ["nodejs_compat"]
-account_id = "bfcb6ac5b3ceaf42a09607f6f7925823"
+# account_id = "bfcb6ac5b3ceaf42a09607f6f7925823"
 
 [observability]
 enabled = true
