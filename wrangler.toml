@@ -17,9 +17,22 @@ class_name = "WorkFlowLive"
 name = "WEBSOCKET_DO"
 class_name = "WebSocketDO"
 
+[[durable_objects.bindings]]
+name = "PROJECT_COORDINATOR"
+class_name = "ProjectCoordinator"
+
 [[migrations]]
 tag = "v1"
 new_classes = ["WebSocketDO"]
+
+[[migrations]]
+tag = "v2"
+new_classes = ["ProjectCoordinator"]
+
+[[d1_databases]]
+binding = "AI_COLLABORATION_DB"
+database_name = "ai-collaboration-db"
+database_id = "ai-collaboration-db"
 
 [assets]
 directory = "src/static"
