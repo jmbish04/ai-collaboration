@@ -1,8 +1,7 @@
 import {
   WorkflowEntrypoint,
   WorkflowEvent,
-  WorkflowStep,
-  WorkflowNamespace
+  WorkflowStep
 } from "cloudflare:workers";
 
 import {
@@ -10,14 +9,20 @@ import {
   DurableObjectNamespace,
   Request
 } from '@cloudflare/workers-types';
+import { Hono } from 'hono';
 
-declare global {
-  const WebSocketPair: any;
+interface WorkflowInstance {
+  status(): Promise<unknown>;
+}
+
+interface WorkflowAPI {
+  create(init: Record<string, unknown>): Promise<{ id: string }>;
+  get(id: string): Promise<WorkflowInstance>;
 }
 
 interface Env {
   WEBSOCKET_DO: DurableObjectNamespace;
-  WORKFLOW_LIVE: WorkflowNamespace;
+  WORKFLOW_LIVE: WorkflowAPI;
 }
 
 const startTime = Date.now();
@@ -48,7 +53,7 @@ export class WebSocketDO implements DurableObject {
       });
     }
 
-    const { id, message } = await request.json() as { id: string, message: string };
+    const { id, message }: { id: string; message: string } = await request.json();
     this.sockets.forEach(ws =>
       ws.readyState === WebSocket.OPEN &&
       ws.send(JSON.stringify({ id, message, time: new Date().toISOString() }))
@@ -92,38 +97,38 @@ export class WorkFlowLive extends WorkflowEntrypoint<Env> {
       await step.sleep("sleep for 1 second", "1 second");
       await log('Workflow complete!');
       return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      await log(`Workflow failed: ${error.message}`);
-      return { success: false, error: error.message };
+      const message = error instanceof Error ? error.message : String(error);
+      await log(`Workflow failed: ${message}`);
+      return { success: false, error: message };
     }
   }
 }
 
-// Simple request router
+// Hono router for worker endpoints
+const app = new Hono<{ Bindings: Env }>();
+
+app.get('/health', (c) => c.json({ status: 'ok' }));
+app.get('/metrics', (c) => c.json({ uptime: Date.now() - startTime }));
+
+app.get('/ws', (c) => {
+  const id = c.env.WEBSOCKET_DO.idFromName('broadcast');
+  return c.env.WEBSOCKET_DO.get(id).fetch(c.req.raw);
+});
+
+app.post('/api/workflow', async (c) => {
+  const { id } = await c.env.WORKFLOW_LIVE.create({});
+  return c.json({ id });
+});
+
+app.get('/api/workflow/:id', async (c) => {
+  const id = c.req.param('id');
+  const workflow = await c.env.WORKFLOW_LIVE.get(id);
+  const status = await workflow.status();
+  return c.json({ id, status });
+});
+
 export default {
-  async fetch(req: Request, env: Env) {
-    const url = new URL(req.url);
-    if (url.pathname === '/health') {
-      return Response.json({ status: 'ok' });
-    }
-    if (url.pathname === '/metrics') {
-      return Response.json({ uptime: Date.now() - startTime });
-    }
-    if (url.pathname === '/ws') {
-      const id = env.WEBSOCKET_DO.idFromName('broadcast');
-      return env.WEBSOCKET_DO.get(id).fetch(req);
-    }
-    if (url.pathname === '/api/workflow') {
-      const { id } = await env.WORKFLOW_LIVE.create({});
-      return Response.json({ id });
-    }
-    if (url.pathname.startsWith('/api/workflow/')) {
-      console.log('api/workflow/', url.pathname.split('/').pop());
-      const id = url.pathname.split('/').pop();
-      const workflow = await env.WORKFLOW_LIVE.get(id);
-      return Response.json({ id, status: await workflow.status() });
-    }
-    return new Response('Not found', { status: 404 });
-  }
+  fetch: app.fetch
 };
