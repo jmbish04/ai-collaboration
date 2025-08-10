@@ -24,5 +24,5 @@ CREATE TABLE IF NOT EXISTS tasks (
   status TEXT,
   created_at INTEGER DEFAULT (strftime('%s','now')),
   updated_at INTEGER DEFAULT (strftime('%s','now')),
-  FOREIGN KEY(project_id) REFERENCES projects(id)
+  FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
