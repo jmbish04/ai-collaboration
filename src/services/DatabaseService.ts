@@ -22,7 +22,16 @@ function mapProject(row: DBProject): Project {
 }
 
 export class DatabaseService {
-  constructor(private db: D1Database) {}
+  private constructor(private db: D1Database) {}
+
+  /**
+   * Create a new DatabaseService and enable foreign key enforcement on the
+   * connection. Call this instead of `new DatabaseService()`.
+   */
+  static async create(db: D1Database): Promise<DatabaseService> {
+    await db.prepare('PRAGMA foreign_keys=ON').run();
+    return new DatabaseService(db);
+  }
 
   async listProjects(): Promise<Project[]> {
     const { results } = await this.db
@@ -65,16 +74,36 @@ export class DatabaseService {
     id: string,
     data: { name?: string; description?: string; status?: Project["status"] },
   ): Promise<Project | null> {
+    if (
+      data.status &&
+      !["planning", "active", "paused", "completed", "archived"].includes(data.status)
+    ) {
+      throw new Error("Invalid status");
+    }
+    const start = Date.now();
+    await this.db
+      .prepare(
+        "EXPLAIN QUERY PLAN UPDATE projects SET name=IFNULL(?2,name), description=IFNULL(?3,description), status=IFNULL(?4,status), updated_at=unixepoch() WHERE id=?1",
+      )
+      .bind(id, data.name ?? null, data.description ?? null, data.status ?? null)
+      .all();
     await this.db
       .prepare(
         "UPDATE projects SET name=IFNULL(?2,name), description=IFNULL(?3,description), status=IFNULL(?4,status), updated_at=unixepoch() WHERE id=?1",
       )
       .bind(id, data.name ?? null, data.description ?? null, data.status ?? null)
       .run();
+    console.log("updateProject took", Date.now() - start, "ms");
     return await this.getProject(id);
   }
 
   async deleteProject(id: string): Promise<void> {
+    const start = Date.now();
+    await this.db
+      .prepare("EXPLAIN QUERY PLAN DELETE FROM projects WHERE id=?1")
+      .bind(id)
+      .all();
     await this.db.prepare("DELETE FROM projects WHERE id=?1").bind(id).run();
+    console.log("deleteProject took", Date.now() - start, "ms");
   }
 }

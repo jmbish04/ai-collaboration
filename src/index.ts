@@ -190,8 +190,9 @@ app.get('/api/workflow/:id', async (c: Context<{ Bindings: Env }>) => {
 
 /**
  * Routes for the ProjectCoordinator Durable Object from the codex branch.
+ * Use `app.all` so that any HTTP method is proxied through to the DO.
  */
-app.get('/api/projects/:id/:subpath{.*}', async (c: Context<{ Bindings: Env }>) => {
+app.all('/api/projects/:id/:subpath{.*}', async (c: Context<{ Bindings: Env }>) => {
   const id = c.req.param('id');
   const subPath = c.req.param('subpath');
   const stub = c.env.PROJECT_COORDINATOR.get(

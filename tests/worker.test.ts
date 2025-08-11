@@ -11,14 +11,22 @@ import { ProjectCoordinator } from '../src/durable-objects/ProjectCoordinator';
 
 class D1Stub {
   projects = new Map<string, any>();
+  agents = new Map<string, any>();
+  tasks = new Map<string, any>();
+  fk = false;
   prepare(query: string) {
     const self = this;
     const q = query.trim().toUpperCase();
-    
-    // This is the updated implementation that will handle dynamic updates
+
     const exec = (params: any[]) => ({
       async run() {
-        if (q.startsWith('INSERT')) {
+        if (q.startsWith('PRAGMA FOREIGN_KEYS=ON')) {
+          self.fk = true;
+        } else if (q.startsWith('PRAGMA FOREIGN_KEYS=OFF')) {
+          self.fk = false;
+        } else if (q.startsWith('EXPLAIN')) {
+          // no-op
+        } else if (q.startsWith('INSERT INTO PROJECTS')) {
           self.projects.set(params[0], {
             id: params[0],
             name: params[1],
@@ -27,39 +35,60 @@ class D1Stub {
             created_at: Math.floor(Date.now() / 1000),
             updated_at: Math.floor(Date.now() / 1000),
           });
+        } else if (q.startsWith('INSERT INTO AGENTS')) {
+          self.agents.set(params[0], {
+            id: params[0],
+            project_id: params[1],
+            name: params[2],
+          });
+        } else if (q.startsWith('INSERT INTO TASKS')) {
+          self.tasks.set(params[0], {
+            id: params[0],
+            project_id: params[1],
+            title: params[2],
+          });
         } else if (q.startsWith('UPDATE')) {
-          const p = self.projects.get(params.pop()); // The last parameter is the ID
+          const p = self.projects.get(params.pop());
           if (p) {
-            const updates = {};
-            const fields = q.substring(q.indexOf('SET') + 4, q.indexOf('WHERE')).split(',').map(s => s.trim().split('=')[0]);
-            
+            const updates: Record<string, any> = {};
+            const fields = q
+              .substring(q.indexOf('SET') + 4, q.indexOf('WHERE'))
+              .split(',')
+              .map((s) => s.trim().split('=')[0]);
             fields.forEach((field, index) => {
-                updates[field] = params[index];
+              updates[field] = params[index];
             });
-
             for (const [key, value] of Object.entries(updates)) {
-                // Allow explicit null assignment
-                p[key] = value;
+              p[key] = value;
             }
-            
             p.updated_at = Math.floor(Date.now() / 1000);
           }
-        } else if (q.startsWith('DELETE')) {
+        } else if (q.startsWith('DELETE FROM PROJECTS')) {
           self.projects.delete(params[0]);
+          if (self.fk) {
+            for (const [id, a] of Array.from(self.agents.entries())) {
+              if (a.project_id === params[0]) self.agents.delete(id);
+            }
+            for (const [id, t] of Array.from(self.tasks.entries())) {
+              if (t.project_id === params[0]) self.tasks.delete(id);
+            }
+          }
         }
         return { success: true } as any;
       },
       async all<T>() {
-        if (q.includes('WHERE')) {
-          const proj = self.projects.get(params[0]);
-          return { results: proj ? [proj as T] : [] } as any;
+        if (q.startsWith('SELECT ID, NAME')) {
+          if (q.includes('WHERE')) {
+            const proj = self.projects.get(params[0]);
+            return { results: proj ? [proj as T] : [] } as any;
+          }
+          return { results: Array.from(self.projects.values()) as T[] } as any;
         }
-        return { results: Array.from(self.projects.values()) as T[] } as any;
+        return { results: [] as T[] } as any;
       },
     });
     return {
       bind(...params: any[]) {
-        // The bind method needs to return the parameters for the mock
         return exec(params);
       },
       all<T>() {

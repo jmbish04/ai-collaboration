@@ -1,5 +1,6 @@
 import type { D1Database } from "@cloudflare/workers-types";
 import { DatabaseService } from "../services/DatabaseService";
+import { runMigrations } from "../services/migrations";
 
 interface Env {
   AI_COLLABORATION_DB: D1Database;
@@ -20,7 +21,8 @@ export async function handleProjects(
   request: Request,
   env: Env,
 ): Promise<Response> {
-  const db = new DatabaseService(env.AI_COLLABORATION_DB);
+  await runMigrations(env.AI_COLLABORATION_DB);
+  const db = await DatabaseService.create(env.AI_COLLABORATION_DB);
   const url = new URL(request.url);
   const id = url.pathname.split("/")[3]; // /api/projects/:id
 
@@ -44,12 +46,19 @@ export async function handleProjects(
     }
     if (request.method === "PUT" && id) {
       const body = await request.json();
-      const project = await db.updateProject(id, body);
-      if (!project) return new Response("Not found", { status: 404 });
-      return new Response(JSON.stringify(project), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
+      try {
+        const project = await db.updateProject(id, body);
+        if (!project) return new Response("Not found", { status: 404 });
+        return new Response(JSON.stringify(project), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (err) {
+        if ((err as Error).message === "Invalid status") {
+          return new Response("Invalid status", { status: 400 });
+        }
+        throw err;
+      }
     }
     if (request.method === "DELETE" && id) {
       await db.deleteProject(id);
