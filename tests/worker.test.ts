@@ -30,18 +30,20 @@ class D1Stub {
         } else if (q.startsWith('UPDATE')) {
           const p = self.projects.get(params.pop()); // The last parameter is the ID
           if (p) {
-            const updates = {};
-            const fields = q.substring(q.indexOf('SET') + 4, q.indexOf('WHERE')).split(',').map(s => s.trim().split('=')[0]);
-            
+            const updates: Record<string, any> = {};
+            const fields = q
+              .substring(q.indexOf('SET') + 4, q.indexOf('WHERE'))
+              .split(',')
+              .map((s) => s.trim().split('=')[0].toLowerCase());
+
             fields.forEach((field, index) => {
-                updates[field] = params[index];
+              if (index < params.length) updates[field] = params[index];
             });
 
             for (const [key, value] of Object.entries(updates)) {
-                // Allow explicit null assignment
-                p[key] = value;
+              p[key] = value;
             }
-            
+
             p.updated_at = Math.floor(Date.now() / 1000);
           }
         } else if (q.startsWith('DELETE')) {
