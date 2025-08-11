@@ -8,6 +8,7 @@ vi.mock('cloudflare:workers', () => ({
 }));
 import worker from '../src/index';
 import { ProjectCoordinator } from '../src/durable-objects/ProjectCoordinator';
+import { DatabaseService } from '../src/services/DatabaseService';
 
 class D1Stub {
   projects = new Map<string, any>();
@@ -288,5 +289,36 @@ describe('ProjectCoordinator filtering', () => {
     expect(tasks.length).toBe(2);
     const titles = tasks.map((t: any) => t.title).sort();
     expect(titles).toEqual(['t1', 't3']);
+  });
+});
+
+describe('DatabaseService.updateProject', () => {
+  let db: DatabaseService;
+  let d1: D1Stub;
+
+  beforeEach(() => {
+    d1 = new D1Stub();
+    db = new DatabaseService(d1 as any);
+  });
+
+  it('updates only specified fields', async () => {
+    await db.createProject({ id: 'p1', name: 'n', description: 'd', status: 'planning' });
+    const updated = await db.updateProject('p1', { status: 'active' });
+    expect(updated?.status).toBe('active');
+    expect(updated?.name).toBe('n');
+    expect(updated?.description).toBe('d');
+  });
+
+  it('sets description to null when provided', async () => {
+    await db.createProject({ id: 'p2', name: 'n', description: 'd', status: 'planning' });
+    await db.updateProject('p2', { description: null });
+    expect(d1.projects.get('p2').description).toBeNull();
+  });
+
+  it('returns current project when no fields supplied', async () => {
+    await db.createProject({ id: 'p3', name: 'n', description: 'd', status: 'planning' });
+    const before = await db.getProject('p3');
+    const result = await db.updateProject('p3', {});
+    expect(result).toEqual(before);
   });
 });
