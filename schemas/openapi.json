@@ -43,8 +43,8 @@
       },
       "put": {
         "summary": "Update project",
-        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Project"}}}},
-        "responses": {"204": {"description": "Updated"}}
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/UpdateProject"}}}},
+        "responses": {"200": {"description": "Project", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Project"}}}}, "404": {"description": "Not found"}}
       },
       "delete": {"summary": "Delete project", "responses": {"204": {"description": "Deleted"}}}
     },
@@ -106,6 +106,15 @@
           "updatedAt": {"type": "integer"}
         },
         "required": ["id", "name", "status", "createdAt", "updatedAt"]
+      },
+      "UpdateProject": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "description": {"type": ["string", "null"]},
+          "status": {"type": "string", "enum": ["planning", "active", "paused", "completed", "archived"]}
+        },
+        "additionalProperties": false
       },
       "Agent": {
         "type": "object",

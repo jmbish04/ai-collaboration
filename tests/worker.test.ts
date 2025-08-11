@@ -11,6 +11,7 @@ import { ProjectCoordinator } from '../src/durable-objects/ProjectCoordinator';
 
 class D1Stub {
   projects = new Map<string, any>();
+  tasks = new Map<string, any>();
   prepare(query: string) {
     const self = this;
     const q = query.trim().toUpperCase();
@@ -18,7 +19,7 @@ class D1Stub {
     // This is the updated implementation that will handle dynamic updates
     const exec = (params: any[]) => ({
       async run() {
-        if (q.startsWith('INSERT')) {
+        if (q.startsWith('INSERT INTO PROJECTS')) {
           self.projects.set(params[0], {
             id: params[0],
             name: params[1],
@@ -27,25 +28,44 @@ class D1Stub {
             created_at: Math.floor(Date.now() / 1000),
             updated_at: Math.floor(Date.now() / 1000),
           });
+        } else if (q.startsWith('INSERT INTO TASKS')) {
+          self.tasks.set(params[0], {
+            id: params[0],
+            project_id: params[1],
+            title: params[2],
+            status: params[3],
+            created_at: Math.floor(Date.now() / 1000),
+            updated_at: Math.floor(Date.now() / 1000),
+          });
         } else if (q.startsWith('UPDATE')) {
-          const p = self.projects.get(params.pop()); // The last parameter is the ID
+          const id = params.pop();
+          const p = self.projects.get(id);
           if (p) {
-            const updates = {};
-            const fields = q.substring(q.indexOf('SET') + 4, q.indexOf('WHERE')).split(',').map(s => s.trim().split('=')[0]);
-            
-            fields.forEach((field, index) => {
-                updates[field] = params[index];
-            });
-
-            for (const [key, value] of Object.entries(updates)) {
-                // Allow explicit null assignment
-                p[key] = value;
+            const assignments = q
+              .substring(q.indexOf('SET') + 4, q.indexOf('WHERE'))
+              .split(',')
+              .map((s) => s.trim());
+            let i = 0;
+            for (const assign of assignments) {
+              const [field, expr] = assign.split('=');
+              const key = field.trim().toLowerCase();
+              if (expr.includes('?')) {
+                p[key] = params[i++];
+              } else if (key === 'updated_at') {
+                p.updated_at = Math.floor(Date.now() / 1000);
+              }
             }
-            
-            p.updated_at = Math.floor(Date.now() / 1000);
+            if (!assignments.some((a) => a.split('=')[0].trim().toLowerCase() === 'updated_at')) {
+              p.updated_at = Math.floor(Date.now() / 1000);
+            }
           }
-        } else if (q.startsWith('DELETE')) {
+        } else if (q.startsWith('DELETE FROM PROJECTS')) {
           self.projects.delete(params[0]);
+          for (const [id, task] of Array.from(self.tasks)) {
+            if (task.project_id === params[0]) self.tasks.delete(id);
+          }
+        } else if (q.startsWith('DELETE FROM TASKS')) {
+          self.tasks.delete(params[0]);
         }
         return { success: true } as any;
       },
@@ -151,6 +171,46 @@ describe('worker', () => {
     const updated = await update.json();
     expect(updated.status).toBe('active');
     expect(updated.updatedAt).toBeGreaterThanOrEqual(created.updatedAt);
+
+    const rename = await worker.fetch(
+      new Request(`http://localhost/api/projects/${created.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ name: 'renamed project' })
+      }),
+      env
+    );
+    const renamed = await rename.json();
+    expect(renamed.name).toBe('renamed project');
+    expect(renamed.status).toBe('active');
+
+    const clearDesc = await worker.fetch(
+      new Request(`http://localhost/api/projects/${created.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ description: null })
+      }),
+      env
+    );
+    const cleared = await clearDesc.json();
+    expect(cleared.description).toBe('');
+  });
+
+  it('cascades task deletion when a project is removed', async () => {
+    const projectId = 'p1';
+    await env.AI_COLLABORATION_DB
+      .prepare("INSERT INTO projects (id, name, description, status, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, unixepoch(), unixepoch())")
+      .bind(projectId, 'proj', null, 'planning')
+      .run();
+    await env.AI_COLLABORATION_DB
+      .prepare("INSERT INTO tasks (id, project_id, title, status, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, unixepoch(), unixepoch())")
+      .bind('t1', projectId, 'task', 'todo')
+      .run();
+
+    await env.AI_COLLABORATION_DB
+      .prepare("DELETE FROM projects WHERE id=?1")
+      .bind(projectId)
+      .run();
+
+    expect(env.AI_COLLABORATION_DB.tasks.size).toBe(0);
   });
 
   it('forwards agent operations to the ProjectCoordinator DO', async () => {
@@ -286,5 +346,71 @@ describe('ProjectCoordinator filtering', () => {
     expect(tasks.length).toBe(2);
     const titles = tasks.map((t: any) => t.title).sort();
     expect(titles).toEqual(['t1', 't3']);
+  });
+});
+
+describe('ProjectCoordinator error handling', () => {
+  const createDO = () => {
+    const storage = new Map<string, any>();
+    const state: any = {
+      storage: {
+        get: async (key: string) => storage.get(key),
+        put: async (key: string, value: any) => {
+          storage.set(key, value);
+        },
+      },
+      blockConcurrencyWhile: async (fn: () => any) => {
+        await fn();
+      },
+    };
+    return new ProjectCoordinator(state, {} as any);
+  };
+
+  it('returns 404 when updating missing agent via HTTP', async () => {
+    const pc = createDO();
+    const res = await pc.fetch(
+      new Request('http://do/agents/missing', {
+        method: 'PUT',
+        body: JSON.stringify({ name: 'x' }),
+      }),
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 404 when updating missing task via HTTP', async () => {
+    const pc = createDO();
+    const res = await pc.fetch(
+      new Request('http://do/tasks/missing', {
+        method: 'PUT',
+        body: JSON.stringify({ title: 't' }),
+      }),
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it('emits error when updating missing agent over WebSocket', async () => {
+    const pc = createDO();
+    const ws: any = { send: vi.fn() };
+    await (pc as any).handleWebSocketMessage(
+      { type: 'agent.update', agentId: 'a1', updates: { name: 'x' } },
+      ws,
+    );
+    expect(ws.send).toHaveBeenCalledWith(
+      expect.stringContaining('"type":"error"'),
+    );
+    expect(ws.send.mock.calls[0][0]).toContain('Agent not found');
+  });
+
+  it('emits error when updating missing task over WebSocket', async () => {
+    const pc = createDO();
+    const ws: any = { send: vi.fn() };
+    await (pc as any).handleWebSocketMessage(
+      { type: 'task.update', taskId: 't1', updates: { title: 'x' } },
+      ws,
+    );
+    expect(ws.send).toHaveBeenCalledWith(
+      expect.stringContaining('"type":"error"'),
+    );
+    expect(ws.send.mock.calls[0][0]).toContain('Task not found');
   });
 });

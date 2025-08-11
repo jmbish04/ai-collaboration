@@ -63,14 +63,32 @@ export class DatabaseService {
 
   async updateProject(
     id: string,
-    data: { name?: string; description?: string; status?: Project["status"] },
+    data: { name?: string; description?: string | null; status?: Project["status"] },
   ): Promise<Project | null> {
-    await this.db
-      .prepare(
-        "UPDATE projects SET name=IFNULL(?2,name), description=IFNULL(?3,description), status=IFNULL(?4,status), updated_at=unixepoch() WHERE id=?1",
-      )
-      .bind(id, data.name ?? null, data.description ?? null, data.status ?? null)
-      .run();
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    if ("name" in data) {
+      fields.push("name=?");
+      values.push(data.name);
+    }
+    if ("description" in data) {
+      fields.push("description=?");
+      values.push(data.description);
+    }
+    if ("status" in data) {
+      fields.push("status=?");
+      values.push(data.status);
+    }
+
+    if (fields.length === 0) {
+      return await this.getProject(id);
+    }
+
+    fields.push("updated_at=unixepoch()");
+    const sql = `UPDATE projects SET ${fields.join(", ")} WHERE id=?`;
+    values.push(id);
+    await this.db.prepare(sql).bind(...values).run();
     return await this.getProject(id);
   }
 

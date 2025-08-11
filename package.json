@@ -22,7 +22,8 @@
     "r2:create": "wrangler r2 bucket create ai-collaboration-storage",
     "setup": "npm run kv:create && npm run r2:create && npm run db:migrate && npm run db:seed",
     "logs": "wrangler tail",
-    "logs:production": "wrangler tail --env production"
+    "logs:production": "wrangler tail --env production",
+    "validate:openapi": "ts-node scripts/validate-openapi.ts"
   },
   "dependencies": {
     "hono": "^4.4.8",
@@ -37,6 +38,7 @@
     "@vitest/ui": "^1.6.0",
     "eslint": "^8.57.0",
     "prettier": "^3.3.2",
+    "ts-node": "^10.9.2",
     "typescript": "^5.5.2",
     "vitest": "^1.6.0",
     "wrangler": "^3.60.3"
