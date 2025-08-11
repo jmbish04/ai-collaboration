@@ -1,37 +1,93 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "AI Collaboration API",
+    "title": "AI Collaboration Platform API",
     "version": "1.0.0",
-    "license": {"name": "MIT", "url": "https://opensource.org/license/mit/"}
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/license/mit/"
+    }
   },
   "servers": [
-    {"url": "https://api.ai-collaboration.com"}
+    {
+      "url": "https://api.ai-collaboration.com"
+    }
   ],
   "security": [],
   "paths": {
+    "/api/projects": {
+      "get": {
+        "summary": "List projects",
+        "responses": {
+          "200": {
+            "description": "Array of Project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Project"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create project",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Project"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/projects/{id}": {
       "parameters": [
         {
           "name": "id",
           "in": "path",
           "required": true,
-          "schema": { "type": "string" }
+          "schema": {
+            "type": "string"
+          }
         }
       ],
       "get": {
-        "summary": "Get project",
+        "summary": "Get project by id",
         "operationId": "getProject",
         "responses": {
           "200": {
             "description": "Project",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Project" }
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
               }
             }
           },
-          "404": { "description": "Not found" }
+          "404": {
+            "description": "Not found"
+          }
         }
       },
       "put": {
@@ -41,7 +97,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/UpdateProject" }
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProject"
+              }
             }
           }
         },
@@ -50,11 +108,194 @@
             "description": "Updated project",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Project" }
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
               }
             }
           },
-          "404": { "description": "Not found" }
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete project",
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          }
+        }
+      }
+    },
+    "/api/projects/{id}/agents": {
+      "get": {
+        "summary": "List agents",
+        "responses": {
+          "200": {
+            "description": "Array of Agent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Agent"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Register agent",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Agent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Registered agent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Agent"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{id}/tasks": {
+      "get": {
+        "summary": "List tasks",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "description": "Comma separated"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of Task",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Task"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create task",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Task"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Created task",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{id}/messages": {
+      "get": {
+        "summary": "List messages",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of Message",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Message"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Send message",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Message"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ack"
+          }
+        }
+      }
+    },
+    "/mcp": {
+      "post": {
+        "summary": "Handle MCP requests",
+        "responses": {
+          "200": {
+            "description": "MCP response"
+          }
         }
       }
     }
@@ -64,30 +305,163 @@
       "Project": {
         "type": "object",
         "properties": {
-          "id": { "type": "string", "readOnly": true },
-          "name": { "type": "string" },
-          "description": { "type": ["string", "null"] },
+          "id": {
+            "type": "string",
+            "readOnly": true
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": ["string", "null"]
+          },
           "status": {
             "type": "string",
-            "enum": ["planning", "active", "paused", "completed", "archived"]
+            "enum": [
+              "planning",
+              "active",
+              "paused",
+              "completed",
+              "archived"
+            ]
           },
-          "createdAt": { "type": "integer", "readOnly": true },
-          "updatedAt": { "type": "integer", "readOnly": true }
+          "createdAt": {
+            "type": "integer",
+            "readOnly": true
+          },
+          "updatedAt": {
+            "type": "integer",
+            "readOnly": true
+          }
         },
-        "required": ["id", "name", "status", "createdAt", "updatedAt"],
+        "required": [
+          "id",
+          "name",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ],
         "additionalProperties": false
       },
       "UpdateProject": {
         "type": "object",
         "properties": {
-          "name": { "type": "string" },
-          "description": { "type": ["string", "null"] },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": ["string", "null"]
+          },
           "status": {
             "type": "string",
-            "enum": ["planning", "active", "paused", "completed", "archived"]
+            "enum": [
+              "planning",
+              "active",
+              "paused",
+              "completed",
+              "archived"
+            ]
           }
         },
         "additionalProperties": false
+      },
+      "Agent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "lastSeen": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "role",
+          "model",
+          "status",
+          "lastSeen"
+        ]
+      },
+      "Task": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "createdAt": {
+            "type": "integer"
+          },
+          "updatedAt": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "priority",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "Message": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "agentId": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "agentId",
+          "type",
+          "content",
+          "timestamp"
+        ]
       }
     }
   }
