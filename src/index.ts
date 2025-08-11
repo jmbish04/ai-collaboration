@@ -1,25 +1,25 @@
+import { Hono } from 'hono';
+import type { Context } from 'hono';
 import {
   WorkflowEntrypoint,
   WorkflowEvent,
   WorkflowStep,
   WorkflowNamespace,
-} from "cloudflare:workers";
-
-import {
+} from 'cloudflare:workers';
+import type {
   DurableObject,
   DurableObjectNamespace,
+  DurableObjectState,
   D1Database,
-} from "@cloudflare/workers-types";
-import { handleMCP } from "./mcp";
-import { handleProjects } from "./routes/projects";
-export { ProjectCoordinator } from "./durable-objects/ProjectCoordinator";
+} from '@cloudflare/workers-types';
+import { handleMCP } from './mcp';
+import { handleProjects } from './routes/projects';
+export { ProjectCoordinator } from './durable-objects/ProjectCoordinator';
 
-declare global {
-  const WebSocketPair: any;
-}
-
+// Consolidated interface for all bindings used across both branches
 interface Env {
   WEBSOCKET_DO: DurableObjectNamespace;
+  // Using WorkflowNamespace as the type, which is compatible with WorkflowAPI
   WORKFLOW_LIVE: WorkflowNamespace;
   PROJECT_COORDINATOR: DurableObjectNamespace;
   AI_COLLABORATION_DB: D1Database;
@@ -33,50 +33,56 @@ const startTime = Date.now();
  * accepts `POST` requests with `{id, message}` payloads for broadcasting.
  */
 export class WebSocketDO implements DurableObject {
-  sockets = new Set<WebSocket>();
-  env: Env;
-
-  constructor(state: DurableObjectState, env: Env) {
-    this.env = env;
-  }
+  private sockets = new Set<WebSocket>();
+  // state is unused but kept for signature completeness
+  constructor(_state: DurableObjectState, _env: Env) {}
 
   /**
    * Handles WebSocket upgrades and broadcast posts.
    *
    * - `GET /ws` with `Upgrade: websocket` establishes a streaming connection
-   *   that will receive messages sent to this DO.
+   * that will receive messages sent to this DO.
    * - `POST /ws` with JSON `{id, message}` broadcasts the payload to all
-   *   connected clients.
+   * connected clients.
    */
   async fetch(request: Request): Promise<Response> {
-    if (request.headers.get("Upgrade") === "websocket") {
+    // WebSocket upgrade handling from both branches (consolidated)
+    if (request.headers.get('Upgrade') === 'websocket') {
       const pair = new WebSocketPair();
       const [client, server] = [pair[0], pair[1]];
-      this.sockets.add(server);
       server.accept();
-      server.addEventListener("close", () => this.sockets.delete(server));
+      // Add error and close listeners from the main branch
+      server.addEventListener('close', () => this.sockets.delete(server));
+      server.addEventListener('error', () => this.sockets.delete(server));
+
+      this.sockets.add(server);
+
       return new Response(null, {
         status: 101,
         headers: {
-          Upgrade: "websocket",
-          Connection: "Upgrade",
+          Upgrade: 'websocket',
+          Connection: 'Upgrade',
         },
         webSocket: client,
-      });
+      } as any);
     }
 
-    const { id, message } = (await request.json()) as {
-      id: string;
-      message: string;
-    };
-    this.sockets.forEach(
-      (ws) =>
-        ws.readyState === WebSocket.OPEN &&
-        ws.send(
-          JSON.stringify({ id, message, time: new Date().toISOString() }),
-        ),
-    );
-    return new Response("OK");
+    // Broadcast message payload logic from main branch
+    try {
+      const { id, message }: { id: string; message: string } = await request.json();
+      const payload = JSON.stringify({ id, message, time: new Date().toISOString() });
+      for (const ws of this.sockets) {
+        try {
+          // @ts-ignore - Workers' WebSocket has OPEN numeric state
+          if (ws.readyState === WebSocket.OPEN) ws.send(payload);
+        } catch {
+          this.sockets.delete(ws);
+        }
+      }
+      return new Response('OK');
+    } catch (err) {
+      return new Response('Bad Request', { status: 400 });
+    }
   }
 }
 
@@ -87,7 +93,7 @@ export class WebSocketDO implements DurableObject {
  */
 export class WorkFlowLive extends WorkflowEntrypoint<Env> {
   private stub = this.env.WEBSOCKET_DO.get(
-    this.env.WEBSOCKET_DO.idFromName("broadcast"),
+    this.env.WEBSOCKET_DO.idFromName('broadcast')
   );
   private q = Promise.resolve();
 
@@ -98,8 +104,8 @@ export class WorkFlowLive extends WorkflowEntrypoint<Env> {
   async run(event: WorkflowEvent<Record<string, unknown>>, step: WorkflowStep) {
     const log = (message: string) =>
       (this.q = this.q.then(async () => {
-        await this.stub.fetch("http://internal/", {
-          method: "POST",
+        await this.stub.fetch('http://internal/', {
+          method: 'POST',
           body: JSON.stringify({
             id: event.instanceId,
             message,
@@ -108,30 +114,30 @@ export class WorkFlowLive extends WorkflowEntrypoint<Env> {
       }));
 
     try {
-      await log("Starting workflow...");
-      await step.sleep("sleep for 1 second", "1 second");
-      await step.do("step1", async () => {
-        await log("Processing step 1...");
+      await log('Starting workflow...');
+      await step.sleep('sleep for 1 second', '1 second');
+      await step.do('step1', async () => {
+        await log('Processing step 1...');
         return true;
       });
-      await step.sleep("sleep for 1 second", "2 second");
-      await step.do("step2", async () => {
-        await log("Processing step 2...");
+      await step.sleep('sleep for 1 second', '2 second');
+      await step.do('step2', async () => {
+        await log('Processing step 2...');
         return true;
       });
-      await step.sleep("sleep for 1 second", "3 second");
-      await step.do("step3", async () => {
-        await log("Processing step 3...");
+      await step.sleep('sleep for 1 second', '3 second');
+      await step.do('step3', async () => {
+        await log('Processing step 3...');
         return true;
       });
-      await step.sleep("sleep for 1 second", "4 second");
-      await step.do("step4", async () => {
-        await log("Processing step 4...");
-        if (Math.random() > 0.75) throw new Error("Random failure!");
+      await step.sleep('sleep for 1 second', '4 second');
+      await step.do('step4', async () => {
+        await log('Processing step 4...');
+        if (Math.random() > 0.75) throw new Error('Random failure!');
         return true;
       });
-      await step.sleep("sleep for 1 second", "1 second");
-      await log("Workflow complete!");
+      await step.sleep('sleep for 1 second', '1 second');
+      await log('Workflow complete!');
       return { success: true };
     } catch (error: any) {
       console.error(error);
@@ -141,60 +147,81 @@ export class WorkFlowLive extends WorkflowEntrypoint<Env> {
   }
 }
 
+// ----------------- Hono app (Worker router) -----------------
+// Adopt the Hono routing structure from the main branch and add all routes.
+
+const app = new Hono<{ Bindings: Env }>();
+
+app.get('/health', (c: Context<{ Bindings: Env }>) =>
+  c.json({ status: 'ok' })
+);
+
+app.get('/metrics', (c: Context<{ Bindings: Env }>) =>
+  c.json({ uptime: Date.now() - startTime })
+);
+
 /**
- * Main request router for the Worker.
- *
- * Routes:
- * - `GET /health` – returns health status.
- * - `GET /metrics` – returns uptime.
- * - `GET /ws` – WebSocket broadcast upgrades handled by `WebSocketDO`.
- * - `POST /api/workflow` & `GET /api/workflow/:id` – trigger and inspect example workflow runs.
- * - `/api/projects/{id}/state` – forwards to a `ProjectCoordinator` DO returning project state.
- * - `/api/projects/{id}/agents|tasks|messages` – forwards subpaths and query strings to the project DO.
- * - `/api/projects` – project CRUD persisted via D1 handled in `routes/projects`.
- * - `POST /mcp` – Model Context Protocol endpoint handled in `mcp.ts`.
+ * WebSocket endpoint. Hono proxies the request to the DO which performs the upgrade.
  */
+app.get('/ws', (c: Context<{ Bindings: Env }>) => {
+  const id = c.env.WEBSOCKET_DO.idFromName('broadcast');
+  const stub = c.env.WEBSOCKET_DO.get(id);
+  return stub.fetch(c.req.raw);
+});
+
+/**
+ * Create a new workflow instance via the bound WORKFLOW_LIVE API.
+ */
+app.post('/api/workflow', async (c: Context<{ Bindings: Env }>) => {
+  const { id } = await c.env.WORKFLOW_LIVE.create({});
+  return c.json({ id });
+});
+
+/**
+ * Get workflow status via the bound WORKFLOW_LIVE API.
+ */
+app.get('/api/workflow/:id', async (c: Context<{ Bindings: Env }>) => {
+  console.log('api/workflow/', c.req.param('id'));
+  const id = c.req.param('id');
+  const workflow = await c.env.WORKFLOW_LIVE.get(id);
+  const status = await workflow.status();
+  return c.json({ id, status });
+});
+
+/**
+ * Routes for the ProjectCoordinator Durable Object from the codex branch.
+ */
+app.get('/api/projects/:id/:subpath{.*}', async (c: Context<{ Bindings: Env }>) => {
+  const id = c.req.param('id');
+  const subPath = c.req.param('subpath');
+  const stub = c.env.PROJECT_COORDINATOR.get(
+    c.env.PROJECT_COORDINATOR.idFromName(id)
+  );
+  const newUrl = new URL(c.req.url);
+  newUrl.pathname = `/${subPath}`;
+  const newReq = new Request(newUrl.toString(), c.req.raw);
+  return stub.fetch(newReq);
+});
+
+/**
+ * Routes for project CRUD operations from the codex branch.
+ */
+app.all('/api/projects{/*}?', (c: Context<{ Bindings: Env }>) => {
+  return handleProjects(c.req.raw, c.env);
+});
+
+/**
+ * Route for Model Context Protocol endpoint from the codex branch.
+ */
+app.post('/mcp', async (c: Context<{ Bindings: Env }>) => {
+  return handleMCP(c.req.raw);
+});
+
+// Fallback for not found pages
+app.all('*', (c: Context<{ Bindings: Env }>) => {
+    return new Response('Not found', { status: 404 });
+});
+
 export default {
-  async fetch(req: Request, env: Env) {
-    const url = new URL(req.url);
-    if (url.pathname === "/health") {
-      return Response.json({ status: "ok" });
-    }
-    if (url.pathname === "/metrics") {
-      return Response.json({ uptime: Date.now() - startTime });
-    }
-    if (url.pathname === "/ws") {
-      const id = env.WEBSOCKET_DO.idFromName("broadcast");
-      return env.WEBSOCKET_DO.get(id).fetch(req);
-    }
-    if (url.pathname === "/api/workflow") {
-      const { id } = await env.WORKFLOW_LIVE.create({});
-      return Response.json({ id });
-    }
-    if (url.pathname.startsWith("/api/workflow/")) {
-      console.log("api/workflow/", url.pathname.split("/").pop());
-      const id = url.pathname.split("/").pop();
-      const workflow = await env.WORKFLOW_LIVE.get(id);
-      return Response.json({ id, status: await workflow.status() });
-    }
-    const projectMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/(.+)$/);
-    if (projectMatch) {
-      const id = projectMatch[1];
-      const subPath = `/${projectMatch[2]}`;
-      const stub = env.PROJECT_COORDINATOR.get(
-        env.PROJECT_COORDINATOR.idFromName(id),
-      );
-      const newUrl = new URL(req.url);
-      newUrl.pathname = subPath;
-      const newReq = new Request(newUrl.toString(), req);
-      return stub.fetch(newReq);
-    }
-    if (url.pathname.startsWith("/api/projects")) {
-      return handleProjects(req, env);
-    }
-    if (url.pathname === "/mcp" && req.method === "POST") {
-      return handleMCP(req);
-    }
-    return new Response("Not found", { status: 404 });
-  },
+  fetch: app.fetch,
 };
