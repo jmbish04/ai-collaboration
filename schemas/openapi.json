@@ -10,7 +10,7 @@
   },
   "servers": [
     {
-      "url": "https://api.ai-collaboration.com"
+      "url": "https://ai-collaboration-api.SUBDOMAIN.workers.dev"
     }
   ],
   "security": [],
