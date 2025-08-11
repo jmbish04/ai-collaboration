@@ -14,6 +14,8 @@ class D1Stub {
   prepare(query: string) {
     const self = this;
     const q = query.trim().toUpperCase();
+    
+    // This is the updated implementation that will handle dynamic updates
     const exec = (params: any[]) => ({
       async run() {
         if (q.startsWith('INSERT')) {
@@ -26,11 +28,20 @@ class D1Stub {
             updated_at: Math.floor(Date.now() / 1000),
           });
         } else if (q.startsWith('UPDATE')) {
-          const p = self.projects.get(params[0]);
+          const p = self.projects.get(params.pop()); // The last parameter is the ID
           if (p) {
-            if (params[1] !== null) p.name = params[1];
-            if (params[2] !== null) p.description = params[2];
-            if (params[3] !== null) p.status = params[3];
+            const updates = {};
+            const fields = q.substring(q.indexOf('SET') + 4, q.indexOf('WHERE')).split(',').map(s => s.trim().split('=')[0]);
+            
+            fields.forEach((field, index) => {
+                updates[field] = params[index];
+            });
+
+            for (const [key, value] of Object.entries(updates)) {
+                // Allow explicit null assignment
+                p[key] = value;
+            }
+            
             p.updated_at = Math.floor(Date.now() / 1000);
           }
         } else if (q.startsWith('DELETE')) {
@@ -48,6 +59,7 @@ class D1Stub {
     });
     return {
       bind(...params: any[]) {
+        // The bind method needs to return the parameters for the mock
         return exec(params);
       },
       all<T>() {
