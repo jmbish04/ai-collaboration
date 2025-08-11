@@ -68,17 +68,13 @@ export class DatabaseService {
     const sets: string[] = [];
     const values: any[] = [];
 
-    if (Object.prototype.hasOwnProperty.call(data, "name")) {
-      sets.push("name=?");
-      values.push(data.name);
-    }
-    if (Object.prototype.hasOwnProperty.call(data, "description")) {
-      sets.push("description=?");
-      values.push(data.description);
-    }
-    if (Object.prototype.hasOwnProperty.call(data, "status")) {
-      sets.push("status=?");
-      values.push(data.status);
+    const allowedUpdates: (keyof typeof data)[] = ["name", "description", "status"];
+
+    for (const key of allowedUpdates) {
+      if (Object.prototype.hasOwnProperty.call(data, key)) {
+        sets.push(`${key}=?`);
+        values.push(data[key]);
+      }
     }
     if (sets.length === 0) {
       return await this.getProject(id);
