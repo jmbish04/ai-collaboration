@@ -186,9 +186,9 @@ export class ProjectCoordinator extends DurableObject {
       try {
         const message = JSON.parse(event.data as string);
         await this.handleWebSocketMessage(message, server);
-      } catch {
+      } catch (e: any) {
         server.send(
-          JSON.stringify({ type: "error", message: "Invalid message format" })
+          JSON.stringify({ type: "error", message: "Invalid message format: " + e.message })
         );
       }
     });
@@ -206,29 +206,48 @@ export class ProjectCoordinator extends DurableObject {
    * `message.send`, and `context.update`.
    */
   private async handleWebSocketMessage(message: any, ws: WebSocket) {
-    switch (message.type) {
-      case "agent.register":
-        await this.registerAgent(message.agent, ws);
-        break;
-      case "agent.update":
-        await this.updateAgent(message.agentId, message.updates);
-        break;
-      case "task.create":
-        await this.createTask(message.task);
-        break;
-      case "task.update":
-        await this.updateTask(message.taskId, message.updates);
-        break;
-      case "message.send":
-        await this.sendMessage(message.message);
-        break;
-      case "context.update":
-        await this.updateContext(message.context);
-        break;
-      default:
-        ws.send(
-          JSON.stringify({ type: "error", message: "Unknown message type" })
-        );
+    try {
+      switch (message.type) {
+        case "agent.register":
+          // Check for required data
+          if (!message.agent) throw new Error("Agent data is missing");
+          await this.registerAgent(message.agent, ws);
+          break;
+        case "agent.update":
+          // Add error handling for not found agent
+          if (!message.agentId || !message.updates) throw new Error("Agent ID or updates are missing");
+          await this.updateAgent(message.agentId, message.updates);
+          break;
+        case "task.create":
+          // Check for required data
+          if (!message.task) throw new Error("Task data is missing");
+          await this.createTask(message.task);
+          break;
+        case "task.update":
+          // Add error handling for not found task
+          if (!message.taskId || !message.updates) throw new Error("Task ID or updates are missing");
+          await this.updateTask(message.taskId, message.updates);
+          break;
+        case "message.send":
+          if (!message.message) throw new Error("Message data is missing");
+          await this.sendMessage(message.message);
+          break;
+        case "context.update":
+          if (!message.context) throw new Error("Context data is missing");
+          await this.updateContext(message.context);
+          break;
+        default:
+          ws.send(
+            JSON.stringify({ type: "error", message: "Unknown message type" })
+          );
+      }
+    } catch (e: any) {
+      if (e.message.includes('not found') || e.message.includes('missing')) {
+        ws.send(JSON.stringify({ type: 'error', message: e.message }));
+      } else {
+        ws.send(JSON.stringify({ type: 'error', message: "An internal server error occurred." }));
+        console.error(e);
+      }
     }
   }
 
