@@ -138,7 +138,7 @@ export class ProjectCoordinator extends DurableObject {
    * - `GET /agents` – list agents.
    * - `GET /tasks?status=&tags=` – list tasks filtered by status or tags.
    * - `GET /messages?type=&limit=` – list messages with optional type filter
-   *   and limit.
+   * and limit.
    * - `GET /analytics` – project analytics summary.
    * - `POST /initialize` – initialize project state.
    * - `POST /agents` – register an agent.
@@ -172,10 +172,10 @@ export class ProjectCoordinator extends DurableObject {
   }
 
   /**
-    * Upgrades the request to a WebSocket connection for real-time updates.
-    * Clients receive broadcast messages for project events and may send JSON
-    * commands such as `agent.register` or `task.update`.
-    */
+   * Upgrades the request to a WebSocket connection for real-time updates.
+   * Clients receive broadcast messages for project events and may send JSON
+   * commands such as `agent.register` or `task.update`.
+   */
   private async handleWebSocket(request: Request): Promise<Response> {
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair) as [WebSocket, WebSocket];
@@ -238,9 +238,9 @@ export class ProjectCoordinator extends DurableObject {
    * - `/state` – returns `ProjectState`.
    * - `/agents` – returns array of `Agent`.
    * - `/tasks` – returns tasks filtered by optional `status` and comma-separated
-   *   `tags` query parameters.
+   * `tags` query parameters.
    * - `/messages` – returns messages filtered by optional `type` and limited by
-   *   `limit` query parameter (most recent first).
+   * `limit` query parameter (most recent first).
    * - `/analytics` – derived statistics about agents and tasks.
    */
   private async handleGet(
@@ -326,12 +326,26 @@ export class ProjectCoordinator extends DurableObject {
     const data = await request.json();
     const parts = path.split("/");
     if (parts[1] === "agents" && parts[2]) {
-      await this.updateAgent(parts[2], data);
-      return this.jsonResponse({ success: true });
+      try {
+        await this.updateAgent(parts[2], data);
+        return this.jsonResponse({ success: true });
+      } catch (e) {
+        if (e instanceof Error && e.message.includes('not found')) {
+          return new Response('Not found', { status: 404 });
+        }
+        throw e;
+      }
     }
     if (parts[1] === "tasks" && parts[2]) {
-      await this.updateTask(parts[2], data);
-      return this.jsonResponse({ success: true });
+      try {
+        await this.updateTask(parts[2], data);
+        return this.jsonResponse({ success: true });
+      } catch (e) {
+        if (e instanceof Error && e.message.includes('not found')) {
+          return new Response('Not found', { status: 404 });
+        }
+        throw e;
+      }
     }
     if (path === "/context") {
       await this.updateContext(data);
