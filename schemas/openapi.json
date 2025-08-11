@@ -1,0 +1,94 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "AI Collaboration API",
+    "version": "1.0.0",
+    "license": {"name": "MIT", "url": "https://opensource.org/license/mit/"}
+  },
+  "servers": [
+    {"url": "https://api.ai-collaboration.com"}
+  ],
+  "security": [],
+  "paths": {
+    "/api/projects/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "string" }
+        }
+      ],
+      "get": {
+        "summary": "Get project",
+        "operationId": "getProject",
+        "responses": {
+          "200": {
+            "description": "Project",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Project" }
+              }
+            }
+          },
+          "404": { "description": "Not found" }
+        }
+      },
+      "put": {
+        "summary": "Update project",
+        "operationId": "updateProject",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateProject" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated project",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Project" }
+              }
+            }
+          },
+          "404": { "description": "Not found" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Project": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "readOnly": true },
+          "name": { "type": "string" },
+          "description": { "type": ["string", "null"] },
+          "status": {
+            "type": "string",
+            "enum": ["planning", "active", "paused", "completed", "archived"]
+          },
+          "createdAt": { "type": "integer", "readOnly": true },
+          "updatedAt": { "type": "integer", "readOnly": true }
+        },
+        "required": ["id", "name", "status", "createdAt", "updatedAt"],
+        "additionalProperties": false
+      },
+      "UpdateProject": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": ["string", "null"] },
+          "status": {
+            "type": "string",
+            "enum": ["planning", "active", "paused", "completed", "archived"]
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}
