@@ -9,5 +9,6 @@
     "types": [
       "@cloudflare/workers-types"
     ]
-  }
+  },
+  "exclude": ["tests"]
 }

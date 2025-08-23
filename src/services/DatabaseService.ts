@@ -74,30 +74,31 @@ export class DatabaseService {
     id: string,
     data: { name?: string; description?: string | null; status?: Project["status"] },
   ): Promise<Project | null> {
-    // Enforce status validation
-    if (
-      data.status &&
-      !["planning", "active", "paused", "completed", "archived"].includes(data.status)
-    ) {
-      throw new Error("Invalid status");
-    }
 
-    const sets: string[] = [];
+    const fields: string[] = [];
     const values: any[] = [];
 
-    const allowedUpdates: (keyof typeof data)[] = ["name", "description", "status"];
-
-    for (const key of allowedUpdates) {
-      if (Object.prototype.hasOwnProperty.call(data, key)) {
-        sets.push(`${key}=?`);
-        values.push(data[key]);
-      }
+    if ("name" in data) {
+      fields.push("name=?");
+      values.push(data.name);
     }
-    if (sets.length === 0) {
+    if ("description" in data) {
+      fields.push("description=?");
+      values.push(data.description);
+    }
+    if ("status" in data) {
+      fields.push("status=?");
+      values.push(data.status);
+    }
+
+    if (fields.length === 0) {
       return await this.getProject(id);
     }
-    const query = `UPDATE projects SET ${sets.join(", ")}, updated_at=unixepoch() WHERE id=?`;
-    await this.db.prepare(query).bind(...values, id).run();
+
+    fields.push("updated_at=unixepoch()");
+    const sql = `UPDATE projects SET ${fields.join(", ")} WHERE id=?`;
+    values.push(id);
+    await this.db.prepare(sql).bind(...values).run();
     return await this.getProject(id);
   }
 
