@@ -8,17 +8,21 @@ vi.mock('cloudflare:workers', () => ({
 }));
 import worker from '../src/index';
 import { ProjectCoordinator } from '../src/durable-objects/ProjectCoordinator';
+import { DatabaseService } from '../src/services/DatabaseService';
 
 class D1Stub {
   projects = new Map<string, any>();
+  agents = new Map<string, any>();
   tasks = new Map<string, any>();
+  fk = false;
+
   prepare(query: string) {
     const self = this;
     const q = query.trim().toUpperCase();
-    
-    // This is the updated implementation that will handle dynamic updates
+
     const exec = (params: any[]) => ({
       async run() {
+
         if (q.startsWith('INSERT INTO PROJECTS')) {
           self.projects.set(params[0], {
             id: params[0],
@@ -27,6 +31,12 @@ class D1Stub {
             status: params[3] ?? 'planning',
             created_at: Math.floor(Date.now() / 1000),
             updated_at: Math.floor(Date.now() / 1000),
+          });
+        } else if (q.startsWith('INSERT INTO AGENTS')) {
+          self.agents.set(params[0], {
+            id: params[0],
+            project_id: params[1],
+            name: params[2],
           });
         } else if (q.startsWith('INSERT INTO TASKS')) {
           self.tasks.set(params[0], {
@@ -41,28 +51,32 @@ class D1Stub {
           const id = params.pop();
           const p = self.projects.get(id);
           if (p) {
-            const assignments = q
+            const updates: Record<string, any> = {};
+            const fields = q
               .substring(q.indexOf('SET') + 4, q.indexOf('WHERE'))
               .split(',')
-              .map((s) => s.trim());
-            let i = 0;
-            for (const assign of assignments) {
-              const [field, expr] = assign.split('=');
-              const key = field.trim().toLowerCase();
-              if (expr.includes('?')) {
-                p[key] = params[i++];
-              } else if (key === 'updated_at') {
-                p.updated_at = Math.floor(Date.now() / 1000);
-              }
+              .map((s) => s.trim().split('=')[0].toLowerCase());
+
+            fields.forEach((field, index) => {
+              if (index < params.length) updates[field] = params[index];
+            });
+            for (const [key, value] of Object.entries(updates)) {
+              p[key] = value;
             }
-            if (!assignments.some((a) => a.split('=')[0].trim().toLowerCase() === 'updated_at')) {
-              p.updated_at = Math.floor(Date.now() / 1000);
-            }
+
+            p.updated_at = Math.floor(Date.now() / 1000);
           }
         } else if (q.startsWith('DELETE FROM PROJECTS')) {
+          // Always remove the project and related tasks.
           self.projects.delete(params[0]);
           for (const [id, task] of Array.from(self.tasks)) {
             if (task.project_id === params[0]) self.tasks.delete(id);
+          }
+          // If foreign-key cascade semantics enabled, also remove agents.
+          if (self.fk) {
+            for (const [id, a] of Array.from(self.agents.entries())) {
+              if (a.project_id === params[0]) self.agents.delete(id);
+            }
           }
         } else if (q.startsWith('DELETE FROM TASKS')) {
           self.tasks.delete(params[0]);
@@ -70,16 +84,18 @@ class D1Stub {
         return { success: true } as any;
       },
       async all<T>() {
-        if (q.includes('WHERE')) {
-          const proj = self.projects.get(params[0]);
-          return { results: proj ? [proj as T] : [] } as any;
+        if (q.startsWith('SELECT ID, NAME')) {
+          if (q.includes('WHERE')) {
+            const proj = self.projects.get(params[0]);
+            return { results: proj ? [proj as T] : [] } as any;
+          }
+          return { results: Array.from(self.projects.values()) as T[] } as any;
         }
-        return { results: Array.from(self.projects.values()) as T[] } as any;
+        return { results: [] as T[] } as any;
       },
     });
     return {
       bind(...params: any[]) {
-        // The bind method needs to return the parameters for the mock
         return exec(params);
       },
       all<T>() {
@@ -412,5 +428,36 @@ describe('ProjectCoordinator error handling', () => {
       expect.stringContaining('"type":"error"'),
     );
     expect(ws.send.mock.calls[0][0]).toContain('Task not found');
+  });
+});
+
+describe('DatabaseService.updateProject', () => {
+  let db: DatabaseService;
+  let d1: D1Stub;
+
+  beforeEach(() => {
+    d1 = new D1Stub();
+    db = new DatabaseService(d1 as any);
+  });
+
+  it('updates only specified fields', async () => {
+    await db.createProject({ id: 'p1', name: 'n', description: 'd', status: 'planning' });
+    const updated = await db.updateProject('p1', { status: 'active' });
+    expect(updated?.status).toBe('active');
+    expect(updated?.name).toBe('n');
+    expect(updated?.description).toBe('d');
+  });
+
+  it('sets description to null when provided', async () => {
+    await db.createProject({ id: 'p2', name: 'n', description: 'd', status: 'planning' });
+    await db.updateProject('p2', { description: null });
+    expect(d1.projects.get('p2').description).toBeNull();
+  });
+
+  it('returns current project when no fields supplied', async () => {
+    await db.createProject({ id: 'p3', name: 'n', description: 'd', status: 'planning' });
+    const before = await db.getProject('p3');
+    const result = await db.updateProject('p3', {});
+    expect(result).toEqual(before);
   });
 });
