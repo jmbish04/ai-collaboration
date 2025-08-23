@@ -181,7 +181,6 @@ app.post('/api/workflow', async (c: Context<{ Bindings: Env }>) => {
  * Get workflow status via the bound WORKFLOW_LIVE API.
  */
 app.get('/api/workflow/:id', async (c: Context<{ Bindings: Env }>) => {
-  console.log('api/workflow/', c.req.param('id'));
   const id = c.req.param('id');
   const workflow = await c.env.WORKFLOW_LIVE.get(id);
   const status = await workflow.status();
@@ -207,7 +206,10 @@ app.all('/api/projects/:id/:subpath{.*}', async (c: Context<{ Bindings: Env }>) 
 /**
  * Routes for project CRUD operations from the codex branch.
  */
-app.all('/api/projects{/*}?', (c: Context<{ Bindings: Env }>) => {
+app.all('/api/projects', (c: Context<{ Bindings: Env }>) => {
+  return handleProjects(c.req.raw, c.env);
+});
+app.all('/api/projects/:id', (c: Context<{ Bindings: Env }>) => {
   return handleProjects(c.req.raw, c.env);
 });
 

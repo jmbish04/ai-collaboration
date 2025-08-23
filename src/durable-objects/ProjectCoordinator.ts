@@ -215,8 +215,17 @@ export class ProjectCoordinator extends DurableObject {
           break;
         case "agent.update":
           // Add error handling for not found agent
-          if (!message.agentId || !message.updates) throw new Error("Agent ID or updates are missing");
-          await this.updateAgent(message.agentId, message.updates);
+          if (!message.agentId || !message.updates)
+            throw new Error("Agent ID or updates are missing");
+          try {
+            await this.updateAgent(message.agentId, message.updates);
+          } catch (e: any) {
+            if (e.message.includes("not found")) {
+              ws.send(JSON.stringify({ type: "error", message: "Agent not found" }));
+              return;
+            }
+            throw e;
+          }
           break;
         case "task.create":
           // Check for required data
@@ -225,8 +234,17 @@ export class ProjectCoordinator extends DurableObject {
           break;
         case "task.update":
           // Add error handling for not found task
-          if (!message.taskId || !message.updates) throw new Error("Task ID or updates are missing");
-          await this.updateTask(message.taskId, message.updates);
+          if (!message.taskId || !message.updates)
+            throw new Error("Task ID or updates are missing");
+          try {
+            await this.updateTask(message.taskId, message.updates);
+          } catch (e: any) {
+            if (e.message.includes("not found")) {
+              ws.send(JSON.stringify({ type: "error", message: "Task not found" }));
+              return;
+            }
+            throw e;
+          }
           break;
         case "message.send":
           if (!message.message) throw new Error("Message data is missing");

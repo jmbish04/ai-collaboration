@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS agents (
   role TEXT,
   created_at INTEGER DEFAULT (strftime('%s','now')),
   updated_at INTEGER DEFAULT (strftime('%s','now')),
+  -- Cascade delete agents when their project is removed
   FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
 
@@ -24,5 +25,6 @@ CREATE TABLE IF NOT EXISTS tasks (
   status TEXT,
   created_at INTEGER DEFAULT (strftime('%s','now')),
   updated_at INTEGER DEFAULT (strftime('%s','now')),
+  -- Cascade delete tasks when their project is removed
   FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
